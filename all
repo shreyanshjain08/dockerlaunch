@@ -1,0 +1,606 @@
+from flask import Flask, request, jsonify, render_template_string
+
+import subprocess
+
+
+
+app = Flask(__name__)
+
+
+
+html_template = """
+
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Docker Management</title>
+
+    <style>
+
+        body {
+
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+            background-color: #f0f2f5;
+
+            margin: 0;
+
+            padding: 0;
+
+        }
+
+        .container {
+
+            max-width: 900px;
+
+            margin: 50px auto;
+
+            padding: 25px;
+
+            background: #fff;
+
+            border-radius: 12px;
+
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+
+            transition: transform 0.3s ease-in-out;
+
+        }
+
+        .container:hover {
+
+            transform: scale(1.02);
+
+        }
+
+        h1 {
+
+            text-align: center;
+
+            color: #333;
+
+            font-size: 2.5em;
+
+            margin-bottom: 20px;
+
+            text-transform: uppercase;
+
+            letter-spacing: 2px;
+
+        }
+
+        form {
+
+            margin-bottom: 30px;
+
+            display: flex;
+
+            flex-direction: column;
+
+        }
+
+        label {
+
+            font-weight: bold;
+
+            color: #555;
+
+            margin-bottom: 8px;
+
+            font-size: 1.2em;
+
+        }
+
+        input[type="text"] {
+
+            padding: 12px;
+
+            font-size: 1.1em;
+
+            margin-bottom: 15px;
+
+            border-radius: 8px;
+
+            border: 1px solid #ddd;
+
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+
+            transition: border-color 0.3s ease;
+
+        }
+
+        input[type="text"]:focus {
+
+            border-color: #007bff;
+
+            outline: none;
+
+        }
+
+        input[type="submit"] {
+
+            padding: 12px;
+
+            font-size: 1.2em;
+
+            color: white;
+
+            background: linear-gradient(45deg, #007bff, #0056b3);
+
+            border: none;
+
+            border-radius: 8px;
+
+            cursor: pointer;
+
+            transition: background 0.3s ease;
+
+        }
+
+        input[type="submit"]:hover {
+
+            background: linear-gradient(45deg, #0056b3, #00408d);
+
+        }
+
+        .form-group {
+
+            margin-bottom: 20px;
+
+        }
+
+        .form-group:last-child {
+
+            margin-bottom: 0;
+
+        }
+
+    </style>
+
+    <script>
+
+        function sendRequest(endpoint, formData) {
+
+            var xhr = new XMLHttpRequest();
+
+            var url = `/${endpoint}`;
+
+            xhr.open("POST", url, true);
+
+            xhr.onload = function() {
+
+                if (xhr.status == 200) {
+
+                    var response = JSON.parse(xhr.responseText);
+
+                    alert(response.message);
+
+                } else {
+
+                    alert("Request failed.");
+
+                }
+
+            };
+
+            xhr.send(formData);
+
+        }
+
+
+
+        function dockerImgPull() {
+
+            var formData = new FormData(document.getElementById("dockerImgPullForm"));
+
+            sendRequest("docker_image_pull", formData);
+
+        }
+
+
+
+        function dockerLaunch() {
+
+            var formData = new FormData(document.getElementById("dockerLaunchForm"));
+
+            sendRequest("launch_docker", formData);
+
+        }
+
+
+
+        function dockerStop() {
+
+            var formData = new FormData(document.getElementById("dockerStopForm"));
+
+            sendRequest("docker_stop", formData);
+
+        }
+
+
+
+        function dockerStart() {
+
+            var formData = new FormData(document.getElementById("dockerStartForm"));
+
+            sendRequest("docker_start", formData);
+
+        }
+
+
+
+        function dockerStatus() {
+
+            var formData = new FormData(document.getElementById("dockerStatusForm"));
+
+            sendRequest("docker_status", formData);
+
+        }
+
+
+
+        function dockerRemove() {
+
+            var formData = new FormData(document.getElementById("dockerRemoveForm"));
+
+            sendRequest("docker_remove", formData);
+
+        }
+
+
+
+        function dockerLogs() {
+
+            var formData = new FormData(document.getElementById("dockerLogsForm"));
+
+            sendRequest("docker_logs", formData);
+
+        }
+
+
+
+        function dockerImgRemove() {
+
+            var formData = new FormData(document.getElementById("dockerImgRemoveForm"));
+
+            sendRequest("docker_image_remove", formData);
+
+        }
+
+    </script>
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>Docker Management</h1>
+
+
+
+        <form id="dockerImgPullForm" onsubmit="event.preventDefault(); dockerImgPull();">
+
+            <div class="form-group">
+
+                <label for="image">Docker Image:</label>
+
+                <input type="text" id="image" name="image" required>
+
+            </div>
+
+            <input type="submit" value="Pull Docker Image">
+
+        </form>
+
+
+
+        <form id="dockerLaunchForm" onsubmit="event.preventDefault(); dockerLaunch();">
+
+            <div class="form-group">
+
+                <label for="container_name">Container Name:</label>
+
+                <input type="text" id="container_name" name="container_name" required>
+
+            </div>
+
+            <div class="form-group">
+
+                <label for="image">Docker Image:</label>
+
+                <input type="text" id="image" name="image" required>
+
+            </div>
+
+            <input type="submit" value="Launch Docker Container">
+
+        </form>
+
+
+
+        <form id="dockerStopForm" onsubmit="event.preventDefault(); dockerStop();">
+
+            <div class="form-group">
+
+                <label for="container_name">Container Name:</label>
+
+                <input type="text" id="container_name" name="container_name" required>
+
+            </div>
+
+            <input type="submit" value="Stop Docker Container">
+
+        </form>
+
+
+
+        <form id="dockerStartForm" onsubmit="event.preventDefault(); dockerStart();">
+
+            <div class="form-group">
+
+                <label for="container_name">Container Name:</label>
+
+                <input type="text" id="container_name" name="container_name" required>
+
+            </div>
+
+            <input type="submit" value="Start Docker Container">
+
+        </form>
+
+
+
+        <form id="dockerStatusForm" onsubmit="event.preventDefault(); dockerStatus();">
+
+            <div class="form-group">
+
+                <label for="container_name">Container Name:</label>
+
+                <input type="text" id="container_name" name="container_name" required>
+
+            </div>
+
+            <input type="submit" value="Get Docker Container Status">
+
+        </form>
+
+
+
+        <form id="dockerRemoveForm" onsubmit="event.preventDefault(); dockerRemove();">
+
+            <div class="form-group">
+
+                <label for="container_name">Container Name:</label>
+
+                <input type="text" id="container_name" name="container_name" required>
+
+            </div>
+
+            <input type="submit" value="Remove Docker Container">
+
+        </form>
+
+
+
+        <form id="dockerLogsForm" onsubmit="event.preventDefault(); dockerLogs();">
+
+            <div class="form-group">
+
+                <label for="container_name">Container Name:</label>
+
+                <input type="text" id="container_name" name="container_name" required>
+
+            </div>
+
+            <input type="submit" value="Get Docker Container Logs">
+
+        </form>
+
+
+
+        <form id="dockerImgRemoveForm" onsubmit="event.preventDefault(); dockerImgRemove();">
+
+            <div class="form-group">
+
+                <label for="image">Docker Image:</label>
+
+                <input type="text" id="image" name="image" required>
+
+            </div>
+
+            <input type="submit" value="Remove Docker Image">
+
+        </form>
+
+    </div>
+
+</body>
+
+</html>
+
+"""
+
+
+
+@app.route('/')
+
+def index():
+
+    return render_template_string(html_template)
+
+
+
+@app.route("/docker_image_pull", methods=["POST"])
+
+def docker_img_pull():
+
+    image = request.form.get('image')
+
+    cmd = f"docker pull {image}"
+
+    output = subprocess.getstatusoutput(cmd)
+
+    if output[0] == 0:
+
+        return jsonify({"message": "Image downloaded successfully.", "status": "success"})
+
+    else:
+
+        return jsonify({"message": "Image download failed.", "status": "fail"})
+
+
+
+@app.route("/launch_docker", methods=["POST"])
+
+def docker_launch():
+
+    container_name = request.form.get('container_name')
+
+    image = request.form.get('image')
+
+    cmd = f"docker run -dit --name {container_name} {image}"
+
+    output = subprocess.getstatusoutput(cmd)
+
+    if output[0] == 0:
+
+        return jsonify({"message": "Docker container launched successfully.", "status": "success", "container_id": output[1]})
+
+    else:
+
+        return jsonify({"message": "Failed to launch Docker container.", "status": "fail"})
+
+
+
+@app.route("/docker_stop", methods=["POST"])
+
+def docker_stop():
+
+    container_name = request.form.get('container_name')
+
+    cmd = f"docker stop {container_name}"
+
+    output = subprocess.getstatusoutput(cmd)
+
+    if output[0] == 0:
+
+        return jsonify({"message": "Docker container stopped successfully.", "status": "success"})
+
+    else:
+
+        return jsonify({"message": "Failed to stop Docker container.", "status": "fail"})
+
+
+
+@app.route("/docker_start", methods=["POST"])
+
+def docker_start():
+
+    container_name = request.form.get('container_name')
+
+    cmd = f"docker start {container_name}"
+
+    output = subprocess.getstatusoutput(cmd)
+
+    if output[0] == 0:
+
+        return jsonify({"message": "Docker container started successfully.", "status": "success"})
+
+    else:
+
+        return jsonify({"message": "Failed to start Docker container.", "status": "fail"})
+
+
+
+@app.route("/docker_status", methods=["POST"])
+
+def docker_status():
+
+    container_name = request.form.get('container_name')
+
+    cmd = f"docker ps -a --filter name={container_name} --format '{{{{.ID}}}} {{{{.Names}}}} {{{{.Status}}}}'"
+
+    output = subprocess.getstatusoutput(cmd)
+
+    if output[0] == 0:
+
+        return jsonify({"message": output[1], "status": "success"})
+
+    else:
+
+        return jsonify({"message": "Failed to get Docker container status.", "status": "fail"})
+
+
+
+@app.route("/docker_remove", methods=["POST"])
+
+def docker_remove():
+
+    container_name = request.form.get('container_name')
+
+    cmd = f"docker rm {container_name}"
+
+    output = subprocess.getstatusoutput(cmd)
+
+    if output[0] == 0:
+
+        return jsonify({"message": "Docker container removed successfully.", "status": "success"})
+
+    else:
+
+        return jsonify({"message": "Failed to remove Docker container.", "status": "fail"})
+
+
+
+@app.route("/docker_logs", methods=["POST"])
+
+def docker_logs():
+
+    container_name = request.form.get('container_name')
+
+    cmd = f"docker logs {container_name}"
+
+    output = subprocess.getstatusoutput(cmd)
+
+    if output[0] == 0:
+
+        return jsonify({"message": output[1], "status": "success"})
+
+    else:
+
+        return jsonify({"message": "Failed to get Docker container logs.", "status": "fail"})
+
+
+
+@app.route("/docker_image_remove", methods=["POST"])
+
+def docker_img_remove():
+
+    image = request.form.get('image')
+
+    cmd = f"docker rmi -f {image}"
+
+    output = subprocess.getstatusoutput(cmd)
+
+    if output[0] == 0:
+
+        return jsonify({"message": "Docker image removed successfully.", "status": "success"})
+
+    else:
+
+        return jsonify({"message": "Failed to remove Docker image.", "status": "fail"})
+
+
+
+if __name__ == "__main__":
+
+    app.run(host="0.0.0.0", port=84)
+
